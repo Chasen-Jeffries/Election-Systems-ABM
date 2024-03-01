@@ -29,9 +29,7 @@ For the five policy areas, both candidates and parties have:
 
 ### Voter Decision Making
 Voters choose the candidate or party that provides the highest utility, calculated as a function of the policy importance weighted by the proximity of the voter's policy preference to the candidate's or party's policy position:
-$$
-\text{Utility} = \sum_{i=A}^{E} \left( \text{Policy-Importance}_i \times \left(1 - \left| \text{Policy-Preference}_i - \text{Policy-Position}_i \right| \right) \right)
-$$
+- Utility = ∑ from i=A to E (Policy-Importance_i × (1 − |Policy-Preference_i − Policy-Position_i|))
 
 ## 🗳️ Voting Systems to Simulate
 - **Majoritarian:** A system where the candidate with the majority of votes in a constituency wins.
