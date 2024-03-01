@@ -45,4 +45,31 @@ The model will simulate each electoral system's unique mechanics, including:
 
 This Concept of Operations document lays the groundwork for the development of the Domestic Politics ABM, outlining the model's structure, goals, and the significant impact of its findings on understanding electoral systems and democratic representation.
 
+## Future Updates:
+To evolve the Domestic Politics Agent-Based Model (ABM) into its next iteration with the new dynamics you've outlined, we're looking at a sophisticated simulation that more closely mimics the nuances of political processes and voter-politician dynamics. This enhancement focuses on three core areas: policy evolution during office tenure, adaptive behavior by both voters and politicians, and enhanced policy dynamics including external shocks. Here’s a structured approach to integrating these components:
+
+### Policy Evolution during Office Tenure
+**Mechanism:**
+- Politicians propose policies while in office. The model simulates legislative sessions where these proposals are debated.
+- The legislative outcome could aim for a median policy position reflecting the legislature's overall stance or maintain the status quo based on the in-office party's preference.
+- Policy positions shift based on legislative outcomes, moving towards either the median legislative position, the in-office party's position, or remaining static.
+
+**Simulation Dynamics:**
+- Track policy shifts over time, reflecting the legislature's changing composition and external influences.
+- Introduce a "policy impact" metric to evaluate the effectiveness and popularity of enacted policies.
+
+### Adaptive Behavior
+**Voters:**
+- Update their voting preferences based on politicians' performance, with a focus on accountability and representation. This could include shifting support towards politicians or parties that have successfully enacted popular or effective policies.
+- Implement a feedback loop where voter satisfaction influences future electoral choices, simulating a more dynamic electoral process.
+
+**Politicians:**
+- Adjust their policy positions based on voter feedback and legislative successes or failures, reflecting an individual learning process.
+- In the legislature, implement a global learning mechanism where politicians collectively adapt their decision-making strategies based on past outcomes and future projections.
+
+### Enhanced Policy Dynamics
+**Incorporate External Shocks:**
+- Simulate sudden political, economic, or social shocks (e.g., financial crises, natural disasters) and their impact on policy priorities and legislative actions.
+- Model the government's response to these shocks and their subsequent effect on voter satisfaction and politician popularity.
+
 
