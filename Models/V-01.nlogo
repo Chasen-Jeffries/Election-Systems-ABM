@@ -8,7 +8,16 @@ globals[
   num-candidates
   num-partys
   unique-state-ids
-
+  Med-Policy-A
+  Med-Policy-B
+  Med-Policy-C
+  Med-Policy-D
+  Med-Policy-E
+  Mean-Policy-A
+  Mean-Policy-B
+  Mean-Policy-C
+  Mean-Policy-D
+  Mean-Policy-E
 
 ]
 
@@ -29,6 +38,11 @@ voters-own[
   candidate-2
   candidate-3
 
+  policy-A-importance-values-01
+  policy-B-importance-values-01
+  policy-C-importance-values-01
+  policy-D-importance-values-01
+  policy-E-importance-values-01
 ]
 
 candidates-own[
@@ -77,10 +91,30 @@ to setup-states
     ; Assign a color based on the state
     ; This example uses a simple method to pick a color from a predefined list based on the state-id
     set pcolor item (state-id mod length base-colors) base-colors
-
   ]
+    update-state-ids-for-patches
     set unique-state-ids remove-duplicates [state-id] of patches
     show unique-state-ids
+end
+
+to update-state-ids-for-patches
+  set unique-state-ids remove-duplicates [state-id] of patches
+  let sorted-state-ids sort unique-state-ids
+  let id-mapping []
+  let new-id 1
+
+  foreach sorted-state-ids [
+    old-id ->
+    set id-mapping lput (list old-id new-id) id-mapping
+    set new-id new-id + 1
+  ]
+
+  ask patches [
+    let current-state-id state-id
+    ; Find the new-state-id from id-mapping for current-state-id
+    let new-state-id item 1 (first filter [[pair] -> first pair = current-state-id] id-mapping)
+    set state-id new-state-id
+  ]
 end
 
 
@@ -134,25 +168,55 @@ end
 to voter-policy
   ask voters[
           set policy-A-preference-values abs(round random-normal policy-A-m policy-A-sd)
-          set policy-A-importance-values abs(round random-normal policy-A-imp-m policy-A-imp-sd)
+            if policy-A-preference-values > 10 [set policy-A-preference-values 10]
+            if policy-A-preference-values < 1 [set policy-A-preference-values 1]
+          set policy-A-importance-values (abs(round random-normal policy-A-imp-m policy-A-imp-sd) / 10)
+                if policy-A-importance-values > 1 [set policy-A-importance-values 1]
+                if policy-A-importance-values < 0 [set policy-A-importance-values 0]
           set policy-B-preference-values abs(round random-normal policy-B-m policy-B-sd)
-          set policy-B-importance-values abs(round random-normal policy-B-imp-m policy-B-imp-sd)
+            if policy-B-preference-values > 10 [set policy-B-preference-values 10]
+            if policy-B-preference-values < 1 [set policy-B-preference-values 1]
+          set policy-B-importance-values (abs(round random-normal policy-B-imp-m policy-B-imp-sd) / 10)
+                if policy-B-importance-values > 1 [set policy-B-importance-values 1]
+                if policy-B-importance-values < 0 [set policy-B-importance-values 0]
           set policy-C-preference-values abs(round random-normal policy-C-m policy-C-sd)
-          set policy-C-importance-values abs(round random-normal policy-C-imp-m policy-C-imp-sd)
+            if policy-C-preference-values > 10 [set policy-C-preference-values 10]
+            if policy-C-preference-values < 1 [set policy-C-preference-values 1]
+          set policy-C-importance-values (abs(round random-normal policy-C-imp-m policy-C-imp-sd) / 10)
+                if policy-C-importance-values > 1 [set policy-C-importance-values 1]
+                if policy-C-importance-values < 0 [set policy-C-importance-values 0]
           set policy-D-preference-values abs(round random-normal policy-D-m policy-D-sd)
-          set policy-D-importance-values abs(round random-normal policy-D-imp-m policy-D-imp-sd)
+            if policy-D-preference-values > 10 [set policy-D-preference-values 10]
+            if policy-D-preference-values < 1 [set policy-D-preference-values 1]
+          set policy-D-importance-values (abs(round random-normal policy-D-imp-m policy-D-imp-sd) / 10)
+                if policy-D-importance-values > 1 [set policy-D-importance-values 1]
+                if policy-D-importance-values < 0 [set policy-D-importance-values 0]
           set policy-E-preference-values abs(round random-normal policy-E-m policy-E-sd)
-          set policy-E-importance-values abs(round random-normal policy-E-imp-m policy-E-imp-sd)
+            if policy-E-preference-values > 10 [set policy-E-preference-values 10]
+            if policy-E-preference-values < 1 [set policy-E-preference-values 1]
+          set policy-E-importance-values (abs(round random-normal policy-E-imp-m policy-E-imp-sd) / 10)
+                if policy-E-importance-values > 1 [set policy-E-importance-values 1]
+                if policy-E-importance-values < 0 [set policy-E-importance-values 0]
   ]
 end
 
 to candidate-policy
   ask candidates[
           set policy-A-positions abs(round random-normal policy-A-position-m policy-A-position-sd)
+                if policy-A-positions > 10 [set policy-A-positions 10]
+                if policy-A-positions < 1 [set policy-A-positions 1]
           set policy-B-positions abs(round random-normal policy-B-position-m policy-B-position-sd)
+                if policy-B-positions > 10 [set policy-B-positions 10]
+                if policy-B-positions < 1 [set policy-B-positions 1]
           set policy-C-positions abs(round random-normal policy-C-position-m policy-C-position-sd)
+                if policy-C-positions > 10 [set policy-C-positions 10]
+                if policy-C-positions < 1 [set policy-C-positions 1]
           set policy-D-positions abs(round random-normal policy-D-position-m policy-D-position-sd)
+                if policy-D-positions > 10 [set policy-D-positions 10]
+                if policy-D-positions < 1 [set policy-D-positions 1]
           set policy-E-positions abs(round random-normal policy-E-position-m policy-E-position-sd)
+                if policy-E-positions > 10 [set policy-E-positions 10]
+                if policy-E-positions < 1 [set policy-E-positions 1]
      set winner? false
   ]
 end
@@ -187,9 +251,11 @@ end
 
 ; MAIN SIMULATION LOOP
 TO go
-  if ticks = 1 [stop]
+  if ticks < 1 [
   determine-vote
   simulate-elections
+  ]
+  update-visuals
   tick
 END
 
@@ -314,6 +380,37 @@ TO vote-majoritarian  ; Simplified example for majoritarian voting
 END
 
 ; ADDITIONAL PROCEDURES for electoral process dynamics, election thresholds, etc.
+
+
+to update-visuals
+  legislature-visuals
+  district-visuals
+
+end
+
+to legislature-visuals
+  set Med-Policy-A median [policy-A-positions] of candidates with [winner? = true]
+  set Med-Policy-B median [policy-B-positions] of candidates with [winner? = true]
+  set Med-Policy-C median [policy-C-positions] of candidates with [winner? = true]
+  set Med-Policy-D median [policy-D-positions] of candidates with [winner? = true]
+  set Med-Policy-E median [policy-E-positions] of candidates with [winner? = true]
+  set Mean-Policy-A median [policy-A-positions] of candidates with [winner? = true]
+  set Mean-Policy-B median [policy-B-positions] of candidates with [winner? = true]
+  set Mean-Policy-C median [policy-C-positions] of candidates with [winner? = true]
+  set Mean-Policy-D median [policy-D-positions] of candidates with [winner? = true]
+  set Mean-Policy-E median [policy-E-positions] of candidates with [winner? = true]
+end
+
+
+to district-visuals
+  ask voters[
+    set policy-A-importance-values-01 policy-A-importance-values * 10
+    set policy-B-importance-values-01 policy-B-importance-values * 10
+    set policy-C-importance-values-01 policy-C-importance-values * 10
+    set policy-D-importance-values-01 policy-D-importance-values * 10
+    set policy-E-importance-values-01 policy-E-importance-values * 10
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 190
@@ -351,7 +448,7 @@ voters-m
 voters-m
 0
 100
-5.0
+20.0
 1
 1
 NIL
@@ -401,7 +498,7 @@ policy-A-m
 policy-A-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -416,7 +513,7 @@ policy-A-sd
 policy-A-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -431,7 +528,7 @@ policy-B-sd
 policy-B-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -446,7 +543,7 @@ policy-B-m
 policy-B-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -461,7 +558,7 @@ policy-C-m
 policy-C-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -476,7 +573,7 @@ policy-C-sd
 policy-C-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -491,7 +588,7 @@ policy-D-m
 policy-D-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -506,7 +603,7 @@ policy-D-sd
 policy-D-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -521,7 +618,7 @@ policy-E-m
 policy-E-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -536,7 +633,7 @@ policy-E-sd
 policy-E-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -550,8 +647,8 @@ SLIDER
 policy-A-imp-m
 policy-A-imp-m
 0
-100
-50.0
+10
+5.0
 1
 1
 NIL
@@ -565,8 +662,8 @@ SLIDER
 policy-A-imp-sd
 policy-A-imp-sd
 0
-100
-50.0
+10
+2.5
 1
 1
 NIL
@@ -580,8 +677,8 @@ SLIDER
 policy-B-imp-m
 policy-B-imp-m
 0
-100
-50.0
+10
+5.0
 1
 1
 NIL
@@ -595,8 +692,8 @@ SLIDER
 policy-B-imp-sd
 policy-B-imp-sd
 0
-100
-50.0
+10
+2.5
 1
 1
 NIL
@@ -670,8 +767,8 @@ SLIDER
 policy-C-imp-m
 policy-C-imp-m
 0
-100
-50.0
+10
+5.0
 1
 1
 NIL
@@ -685,8 +782,8 @@ SLIDER
 policy-C-imp-sd
 policy-C-imp-sd
 0
-100
-50.0
+10
+2.5
 1
 1
 NIL
@@ -700,8 +797,8 @@ SLIDER
 policy-D-imp-m
 policy-D-imp-m
 0
-100
-50.0
+10
+5.0
 1
 1
 NIL
@@ -715,8 +812,8 @@ SLIDER
 policy-D-imp-sd
 policy-D-imp-sd
 0
-100
-50.0
+10
+2.5
 1
 1
 NIL
@@ -730,8 +827,8 @@ SLIDER
 policy-E-imp-m
 policy-E-imp-m
 0
-100
-50.0
+10
+5.0
 1
 1
 NIL
@@ -745,8 +842,8 @@ SLIDER
 policy-E-imp-sd
 policy-E-imp-sd
 0
-100
-50.0
+10
+2.5
 1
 1
 NIL
@@ -771,7 +868,7 @@ policy-A-position-m
 policy-A-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -786,7 +883,7 @@ policy-A-position-sd
 policy-A-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -801,7 +898,7 @@ policy-B-position-m
 policy-B-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -816,7 +913,7 @@ policy-B-position-sd
 policy-B-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -831,7 +928,7 @@ policy-C-position-m
 policy-C-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -846,7 +943,7 @@ policy-C-position-sd
 policy-C-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -861,7 +958,7 @@ policy-D-position-m
 policy-D-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -876,7 +973,7 @@ policy-D-position-sd
 policy-D-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -891,7 +988,7 @@ policy-E-position-m
 policy-E-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -906,7 +1003,7 @@ policy-E-position-sd
 policy-E-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -961,7 +1058,7 @@ party-policy-A-position-m
 party-policy-A-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -976,7 +1073,7 @@ party-policy-A-position-sd
 party-policy-A-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -991,7 +1088,7 @@ party-policy-B-position-m
 party-policy-B-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -1006,7 +1103,7 @@ party-policy-B-position-sd
 party-policy-B-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -1021,7 +1118,7 @@ party-policy-C-position-m
 party-policy-C-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -1036,7 +1133,7 @@ party-policy-C-position-sd
 party-policy-C-position-sd
 0
 100
-51.0
+2.5
 1
 1
 NIL
@@ -1051,7 +1148,7 @@ party-policy-D-position-m
 party-policy-D-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -1066,7 +1163,7 @@ party-policy-D-position-sd
 party-policy-D-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -1081,7 +1178,7 @@ party-policy-E-position-m
 party-policy-E-position-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -1096,7 +1193,7 @@ party-policy-E-position-sd
 party-policy-E-position-sd
 0
 100
-50.0
+2.5
 1
 1
 NIL
@@ -1167,6 +1264,539 @@ Election-Threshold
 1
 1
 -1000
+
+PLOT
+864
+10
+1064
+160
+Legislature Policy A Histogram
+Policy-A
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-A-positions] of candidates with [winner? = true]"
+
+PLOT
+864
+159
+1064
+309
+Legislature Policy B Histogram
+Policy-B
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-B-positions] of candidates with [winner? = true]"
+
+PLOT
+864
+309
+1064
+459
+Legislature Policy C Histogram
+Policy-C
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-C-positions] of candidates with [winner? = true]"
+
+PLOT
+864
+458
+1064
+608
+Legislature Policy D Histogram
+Policy-D
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-D-positions] of candidates with [winner? = true]"
+
+PLOT
+864
+608
+1064
+758
+Legislature Policy E Histogram
+Policy-D
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-E-positions] of candidates with [winner? = true]"
+
+CHOOSER
+1072
+10
+1210
+55
+View-State
+View-State
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+2
+
+MONITOR
+1072
+55
+1137
+100
+Voters
+count voters with [voter-state-id = view-state]
+1
+1
+11
+
+MONITOR
+1072
+100
+1137
+145
+Candidates
+count candidates with [candidate-state-id = view-state]
+1
+1
+11
+
+MONITOR
+1137
+55
+1194
+100
+Partys
+count partys with [party-state-id = view-state]
+1
+1
+11
+
+PLOT
+1551
+10
+1751
+160
+Voters Policy-A Importance Histogram
+Policy-A Importance
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-A-importance-values-01] of voters with [voter-state-id = view-state]"
+
+PLOT
+1352
+10
+1552
+160
+Voters Policy-A Position Histogram
+Policy-A Position
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-A-preference-values] of voters with [voter-state-id = view-state]"
+
+PLOT
+1352
+160
+1552
+310
+Voters Policy-B Position Histogram
+Policy-B Position
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-B-preference-values] of voters with [voter-state-id = view-state]"
+
+PLOT
+1353
+310
+1553
+460
+Voters Policy-C Position Histogram
+Policy-C Postion
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-C-preference-values] of voters with [voter-state-id = view-state]"
+
+PLOT
+1353
+460
+1553
+610
+Voters Policy-D Position Histogram
+Policy-D Position
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-D-preference-values] of voters with [voter-state-id = view-state]"
+
+PLOT
+1353
+610
+1553
+760
+Voters Policy-E Position Histogram
+Policy-E Position
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-E-preference-values] of voters with [voter-state-id = view-state]"
+
+PLOT
+1552
+160
+1752
+310
+Voters Policy-B Importance Histogram
+Policy-B Importance
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-B-importance-values-01] of voters with [voter-state-id = view-state]"
+
+PLOT
+1553
+311
+1753
+461
+Voters Policy-C Importance Histogram
+Policy-C Importance
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-C-importance-values-01] of voters with [voter-state-id = view-state]"
+
+PLOT
+1553
+461
+1753
+611
+Voters Policy-D Importance Histogram
+Policy-D Importance
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-D-importance-values-01] of voters with [voter-state-id = view-state]"
+
+PLOT
+1553
+610
+1753
+760
+Voters Policy-E Importance Histogram
+Policy-E Importance
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-E-importance-values-01] of voters with [voter-state-id = view-state]"
+
+MONITOR
+1212
+10
+1284
+55
+Max Policy A
+max [Policy-A-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1211
+54
+1284
+99
+Avg Policy A
+mean [Policy-A-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1284
+10
+1352
+55
+Min Policy A
+min [Policy-A-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1280
+54
+1352
+99
+Med Policy A
+median [Policy-A-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1211
+160
+1282
+205
+Max Policy-B
+max [Policy-B-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1282
+160
+1352
+205
+Min Policy-B
+min [Policy-B-preference-values] of voters with [voter-state-id = view-state]
+1
+1
+11
+
+MONITOR
+1211
+205
+1282
+250
+Avg Policy-B
+mean [Policy-B-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1280
+205
+1352
+250
+Med Policy-B
+median [Policy-B-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1285
+310
+1353
+355
+Min Policy-C
+min [Policy-C-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1213
+310
+1285
+355
+Max Policy-C
+max [Policy-C-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1213
+354
+1285
+399
+Avg Policy-C
+mean [Policy-C-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1282
+354
+1354
+399
+Med Policy-C
+median [Policy-C-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1213
+460
+1285
+505
+Max Policy-D
+max [Policy-D-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1213
+504
+1285
+549
+Avg Policy-D
+mean [Policy-D-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1285
+460
+1353
+505
+Min Policy-D
+min [Policy-D-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1282
+504
+1354
+549
+Med Policy-D
+median [Policy-D-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1215
+610
+1286
+655
+Max Policy-E
+max [Policy-E-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1286
+610
+1353
+655
+Min Policy-E
+min [Policy-E-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
+
+MONITOR
+1215
+655
+1286
+700
+Avg Policy-E
+mean [Policy-E-preference-values] of voters with [voter-state-id = view-state]
+1
+1
+11
+
+MONITOR
+1283
+655
+1354
+700
+Med Policy-E
+median [Policy-E-preference-values] of voters with [voter-state-id = view-state]
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
