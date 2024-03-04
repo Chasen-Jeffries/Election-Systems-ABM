@@ -4,6 +4,11 @@ breed [candidates candidate]
 breed [partys party]
 
 globals[
+  num-voters
+  num-candidates
+  num-partys
+  unique-state-ids
+
 
 ]
 
@@ -19,6 +24,11 @@ voters-own[
   policy-D-preference-values
   policy-E-importance-values
   policy-E-preference-values
+  voter-state-id
+  candidate-1
+  candidate-2
+  candidate-3
+
 ]
 
 candidates-own[
@@ -27,6 +37,9 @@ candidates-own[
   policy-C-positions
   policy-D-positions
   policy-E-positions
+  candidate-state-id
+  votes
+  winner?
 ]
 
 partys-own[
@@ -35,70 +48,20 @@ partys-own[
   party-policy-C-positions
   party-policy-D-positions
   party-policy-E-positions
+  party-state-id
+]
+
+patches-own[
+ state-id
 ]
 
 ; SETUP PROCEDURES
 TO setup
   clear-all
   setup-states
-  setup-voters
-  setup-candidates
-  setup-parties
+  setup-agents
   assign-averages
   reset-ticks
-END
-
-TO setup-voters
-  ; Create voter agents with policy-importance values and policy-preference values
-  let number-of-voters abs(round random-normal voters-m voters-sd)
-  create-voters number-of-voters [
-    set shape "person"
-    set size 1.5  ; Adjust size for visibility
-    setxy random-xcor random-ycor
-    set policy-A-preference-values abs(round random-normal policy-A-m policy-A-sd)
-    set policy-A-importance-values abs(round random-normal policy-A-imp-m policy-A-imp-sd)
-    set policy-B-preference-values abs(round random-normal policy-B-m policy-B-sd)
-    set policy-B-importance-values abs(round random-normal policy-B-imp-m policy-B-imp-sd)
-    set policy-C-preference-values abs(round random-normal policy-C-m policy-C-sd)
-    set policy-C-importance-values abs(round random-normal policy-C-imp-m policy-C-imp-sd)
-    set policy-D-preference-values abs(round random-normal policy-D-m policy-D-sd)
-    set policy-D-importance-values abs(round random-normal policy-D-imp-m policy-D-imp-sd)
-    set policy-E-preference-values abs(round random-normal policy-E-m policy-E-sd)
-    set policy-E-importance-values abs(round random-normal policy-E-imp-m policy-E-imp-sd)
-  ]
-END
-
-TO setup-candidates
-  if Partys? = False[
-  ; Create candidate agents with policy positions
-  let number-of-candidates abs(round random-normal candidates-m candidates-sd)
-  create-candidates number-of-candidates [
-    set shape "star"
-    set size 2  ; Adjust size for visibility
-    setxy random-xcor random-ycor
-    set policy-A-positions abs(round random-normal policy-A-position-m policy-A-position-sd)
-    set policy-B-positions abs(round random-normal policy-B-position-m policy-B-position-sd)
-    set policy-C-positions abs(round random-normal policy-C-position-m policy-C-position-sd)
-    set policy-D-positions abs(round random-normal policy-D-position-m policy-D-position-sd)
-    set policy-E-positions abs(round random-normal policy-E-position-m policy-E-position-sd)
-  ]
- ]
-END
-
-TO setup-parties
-  if Partys? = true[
-  let number-of-candidates abs(round random-normal candidates-m candidates-sd)
-  create-partys number-of-candidates [
-    set shape "circle"
-    set size 2  ; Adjust size for visibility
-    setxy random-xcor random-ycor
-    set party-policy-A-positions abs(round random-normal party-policy-A-position-m party-policy-A-position-sd)
-    set party-policy-B-positions abs(round random-normal party-policy-B-position-m party-policy-B-position-sd)
-    set party-policy-C-positions abs(round random-normal party-policy-C-position-m party-policy-C-position-sd)
-    set party-policy-D-positions abs(round random-normal party-policy-D-position-m party-policy-D-position-sd)
-    set party-policy-E-positions abs(round random-normal party-policy-E-position-m party-policy-E-position-sd)
-  ]
- ]
 END
 
 ;; Divide the world into 50 states and assign unique IDs
@@ -107,16 +70,104 @@ to setup-states
   ; Iterate over all patches
   ask patches [
     ; Calculate the "state" based on the patch coordinates
-    let state-x int(pxcor / 5)
-    let state-y int(pycor / 5)
-    let state-id (state-x + 10 * state-y)
+    let state-x int(pxcor / 10)
+    let state-y int(pycor / 10)
+    set state-id (state-x + 10 * state-y)
 
     ; Assign a color based on the state
     ; This example uses a simple method to pick a color from a predefined list based on the state-id
     set pcolor item (state-id mod length base-colors) base-colors
-  ]
 
+  ]
+    set unique-state-ids remove-duplicates [state-id] of patches
+    show unique-state-ids
 end
+
+
+to setup-agents
+
+  foreach unique-state-ids [
+    current-state-id ->
+    ask n-of 1 patches with [state-id = current-state-id][
+    set num-voters abs(round random-normal voters-m voters-sd)
+    ifelse not partys?[
+        set num-candidates abs(round random-normal candidates-m candidates-sd)
+      ][set num-partys abs(round random-normal partys-m partys-sd)]
+    let state-patches patches with [state-id = current-state-id]
+
+    ; For each state, identified by its color, spawn n turtles
+    ask one-of state-patches[
+        sprout-voters num-voters [
+          set voter-state-id [state-id] of patch-here
+          set color black
+          set shape "person"
+          set size 1.5  ; Adjust size for visibility
+          voter-policy
+        ]
+       ]
+
+    ifelse not partys? [
+      ask one-of state-patches [
+         sprout-candidates num-candidates[
+          set candidate-state-id [state-id] of patch-here
+          set color white
+          set shape "star"
+          set size 1.5  ; Adjust size for visibility
+          candidate-policy
+
+         ]
+        ]
+      ][
+        ask one-of state-patches[
+          sprout-partys num-partys[
+          set party-state-id [state-id] of patch-here
+          set shape "circle"
+          set size 2  ; Adjust size for visibility
+          party-policy
+         ]
+        ]
+      ]
+     ]
+  ]
+end
+
+to voter-policy
+  ask voters[
+          set policy-A-preference-values abs(round random-normal policy-A-m policy-A-sd)
+          set policy-A-importance-values abs(round random-normal policy-A-imp-m policy-A-imp-sd)
+          set policy-B-preference-values abs(round random-normal policy-B-m policy-B-sd)
+          set policy-B-importance-values abs(round random-normal policy-B-imp-m policy-B-imp-sd)
+          set policy-C-preference-values abs(round random-normal policy-C-m policy-C-sd)
+          set policy-C-importance-values abs(round random-normal policy-C-imp-m policy-C-imp-sd)
+          set policy-D-preference-values abs(round random-normal policy-D-m policy-D-sd)
+          set policy-D-importance-values abs(round random-normal policy-D-imp-m policy-D-imp-sd)
+          set policy-E-preference-values abs(round random-normal policy-E-m policy-E-sd)
+          set policy-E-importance-values abs(round random-normal policy-E-imp-m policy-E-imp-sd)
+  ]
+end
+
+to candidate-policy
+  ask candidates[
+          set policy-A-positions abs(round random-normal policy-A-position-m policy-A-position-sd)
+          set policy-B-positions abs(round random-normal policy-B-position-m policy-B-position-sd)
+          set policy-C-positions abs(round random-normal policy-C-position-m policy-C-position-sd)
+          set policy-D-positions abs(round random-normal policy-D-position-m policy-D-position-sd)
+          set policy-E-positions abs(round random-normal policy-E-position-m policy-E-position-sd)
+     set winner? false
+  ]
+end
+
+to party-policy
+  ask partys[
+          set party-policy-A-positions abs(round random-normal party-policy-A-position-m party-policy-A-position-sd)
+          set party-policy-B-positions abs(round random-normal party-policy-B-position-m party-policy-B-position-sd)
+          set party-policy-C-positions abs(round random-normal party-policy-C-position-m party-policy-C-position-sd)
+          set party-policy-D-positions abs(round random-normal party-policy-D-position-m party-policy-D-position-sd)
+          set party-policy-E-positions abs(round random-normal party-policy-E-position-m party-policy-E-position-sd)
+  ]
+end
+
+
 
 ; Designate patches with lower and higher averages for a variable
 to assign-averages
@@ -127,10 +178,9 @@ to assign-averages
   let liberal-states n-of liberal-districts patches with [not member? self conservative-states]
 
   ; Assign lower and higher resource levels
-  ask conservative-states [ set pcolor red + 1  ; Example variable adjustment
-                     set plabel "Conservative" ]
-  ask liberal-states [ set pcolor blue - 1
-                      set plabel "Liberal" ]
+  ask conservative-states [set pcolor red + 1  ; Example variable adjustment
+                     ]
+  ask liberal-states [set pcolor blue - 1]
   ]
 end
 
@@ -144,13 +194,66 @@ TO go
 END
 
 to Determine-vote
-
-
+  rank-candidates-for-voters
 
 end
 
+to rank-candidates-for-voters
+ask voters[
+    let my-state voter-state-id
+      create-links-to other candidates with [candidate-state-id = my-state] [
+      ; set hidden? true
+    ]
+
+   let utilities-list []
+   ask my-links [
+       let utility (utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       set utilities-list fput (list utility self) utilities-list
+   ]
+    let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] utilities-list
+
+    if (length sorted-utilities > 0) [
+      set candidate-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+    if (length sorted-utilities > 1) [
+      set candidate-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+  ]
+    if (length sorted-utilities > 2) [
+      set candidate-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+  ]
+]
 
 
+  ]
+end
+
+to-report utility-calc [voter1 candidate1]
+  ; Example utility calculation
+
+      let voter-pref-a [policy-A-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let cand-pref-a [policy-A-positions] of candidate1
+      let voter-pref-b [policy-B-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let cand-pref-b [policy-B-positions] of candidate1
+      let voter-pref-c [policy-C-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let cand-pref-c [policy-C-positions] of candidate1
+      let voter-pref-d [policy-D-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let cand-pref-d [policy-D-positions] of candidate1
+      let voter-pref-E [policy-E-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let cand-pref-e [policy-E-positions] of candidate1
+
+      let A-dif abs([voter-pref-a] of voter1 - [cand-pref-a] of candidate1)
+      let B-dif abs([voter-pref-b] of voter1 - [cand-pref-b] of candidate1)
+      let C-dif abs([voter-pref-c] of voter1 - [cand-pref-c] of candidate1)
+      let D-dif abs([voter-pref-d] of voter1 - [cand-pref-d] of candidate1)
+      let E-dif abs([voter-pref-e] of voter1 - [cand-pref-e] of candidate1)
+
+      let voter-imp-a [policy-A-importance-values] of voter1
+      let voter-imp-b [policy-B-importance-values] of voter1
+      let voter-imp-c [policy-C-importance-values] of voter1
+      let voter-imp-d [policy-D-importance-values] of voter1
+      let voter-imp-e [policy-E-importance-values] of voter1
+
+      report (voter-imp-a * voter-pref-a) + (voter-imp-b * voter-pref-b) + (voter-imp-c * voter-pref-c) + (voter-imp-d * voter-pref-d) + (voter-imp-e * voter-pref-e)
+end
 
 ; SIMULATE VARIOUS ELECTORAL SYSTEMS
 TO simulate-elections
@@ -163,8 +266,50 @@ END
 
 ; VOTER DECISION MAKING
 TO vote-majoritarian  ; Simplified example for majoritarian voting
-  ; Voters choose the candidate that provides the highest utility
-  ; Utility calculation based on policy-importance and policy-preference
+; Reset selection count at the start of each voting process
+  ask candidates [
+    set votes 0
+  ]
+
+  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
+  foreach state-ids [
+    current-state-id ->
+    ; Increment selection count for candidate-1 chosen by voters in this state
+    ask voters with [state-id = current-state-id] [
+      ; Assuming logic to determine candidate-1 is already executed
+      ask candidate-1 [  ; This needs to be determined prior in your model
+        set votes votes + 1
+      ]
+    ]
+
+
+    ; Now identify the candidate with the highest selection count in this state
+    let winner max-one-of (candidates with [state-id = current-state-id]) [votes]
+
+        ; Set the winner's winner? variable to true
+    ask winner [
+      set winner? true
+    ]
+
+
+  ]
+
+
+;  ; Voters identify their candidate-1 and increment the candidate's selection-count
+;  ask voters [
+;    ; Here, implement logic to set candidate-1 based on your utility calculations
+;    ; Example:
+;    ; let my-candidate1 candidate-1  ; Assume this is determined beforehand
+;
+;    ; Increment selection-count for this candidate
+;    ask candidate-1 [  ; Assuming candidate-1 is already determined and stored for each voter
+;      set votes votes + 1
+;    ]
+;  ]
+;
+;  ; Identify the candidate with the highest selection count
+;  let winner max-one-of candidates [votes]
+
 
 END
 
@@ -173,8 +318,8 @@ END
 GRAPHICS-WINDOW
 190
 37
-798
-646
+848
+696
 -1
 -1
 13.0
@@ -206,7 +351,7 @@ voters-m
 voters-m
 0
 100
-50.0
+5.0
 1
 1
 NIL
@@ -221,7 +366,7 @@ voters-sd
 voters-sd
 0
 100
-50.0
+0.0
 1
 1
 NIL
@@ -238,20 +383,20 @@ District Values
 1
 
 TEXTBOX
-115
-672
-254
-722
+116
+701
+255
+751
 Voter Values\n
 20
 0.0
 1
 
 SLIDER
-0
-707
-172
-740
+1
+736
+173
+769
 policy-A-m
 policy-A-m
 0
@@ -263,10 +408,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-740
-172
-773
+1
+769
+173
+802
 policy-A-sd
 policy-A-sd
 0
@@ -278,10 +423,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-805
-172
-838
+1
+834
+173
+867
 policy-B-sd
 policy-B-sd
 0
@@ -293,10 +438,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-773
-172
-806
+1
+802
+173
+835
 policy-B-m
 policy-B-m
 0
@@ -308,10 +453,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-838
-172
-871
+1
+867
+173
+900
 policy-C-m
 policy-C-m
 0
@@ -323,10 +468,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-870
-172
-903
+1
+899
+173
+932
 policy-C-sd
 policy-C-sd
 0
@@ -338,10 +483,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-902
-172
-935
+1
+931
+173
+964
 policy-D-m
 policy-D-m
 0
@@ -353,10 +498,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-935
-172
-968
+1
+964
+173
+997
 policy-D-sd
 policy-D-sd
 0
@@ -368,10 +513,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-968
-172
-1001
+1
+997
+173
+1030
 policy-E-m
 policy-E-m
 0
@@ -383,10 +528,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-0
-1001
-172
-1034
+1
+1030
+173
+1063
 policy-E-sd
 policy-E-sd
 0
@@ -398,25 +543,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-707
+173
+736
+346
+769
+policy-A-imp-m
+policy-A-imp-m
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+173
+769
 345
-740
-policy-A-imp-m
-policy-A-imp-m
-0
-100
-50.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-172
-740
-344
-773
+802
 policy-A-imp-sd
 policy-A-imp-sd
 0
@@ -428,10 +573,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-773
-344
-806
+173
+802
+345
+835
 policy-B-imp-m
 policy-B-imp-m
 0
@@ -443,10 +588,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-805
-344
-838
+173
+834
+345
+867
 policy-B-imp-sd
 policy-B-imp-sd
 0
@@ -466,7 +611,7 @@ candidates-m
 candidates-m
 0
 50
-10.0
+2.0
 1
 1
 NIL
@@ -481,7 +626,7 @@ candidates-sd
 candidates-sd
 0
 50
-10.0
+0.0
 1
 1
 NIL
@@ -496,7 +641,7 @@ partys-m
 partys-m
 0
 50
-50.0
+2.0
 1
 1
 NIL
@@ -511,17 +656,17 @@ partys-sd
 partys-sd
 0
 50
-50.0
+0.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-172
-838
-344
-871
+173
+867
+345
+900
 policy-C-imp-m
 policy-C-imp-m
 0
@@ -533,10 +678,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-870
-344
-903
+173
+899
+345
+932
 policy-C-imp-sd
 policy-C-imp-sd
 0
@@ -548,10 +693,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-903
-344
-936
+173
+932
+345
+965
 policy-D-imp-m
 policy-D-imp-m
 0
@@ -563,10 +708,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-935
-344
-968
+173
+964
+345
+997
 policy-D-imp-sd
 policy-D-imp-sd
 0
@@ -578,10 +723,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-968
-344
-1001
+173
+997
+345
+1030
 policy-E-imp-m
 policy-E-imp-m
 0
@@ -593,10 +738,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-172
-1000
-344
-1033
+173
+1029
+345
+1062
 policy-E-imp-sd
 policy-E-imp-sd
 0
@@ -608,20 +753,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-376
-676
-588
-726
+378
+705
+590
+755
 Candidate Values\t
 20
 0.0
 1
 
 SLIDER
-367
-707
-539
-740
+369
+736
+541
+769
 policy-A-position-m
 policy-A-position-m
 0
@@ -633,10 +778,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-740
-539
-773
+369
+769
+541
+802
 policy-A-position-sd
 policy-A-position-sd
 0
@@ -648,10 +793,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-773
-539
-806
+369
+802
+541
+835
 policy-B-position-m
 policy-B-position-m
 0
@@ -663,10 +808,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-805
-539
-838
+369
+834
+541
+867
 policy-B-position-sd
 policy-B-position-sd
 0
@@ -678,10 +823,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-838
-539
-871
+369
+867
+541
+900
 policy-C-position-m
 policy-C-position-m
 0
@@ -693,10 +838,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-871
-539
-904
+369
+900
+541
+933
 policy-C-position-sd
 policy-C-position-sd
 0
@@ -708,10 +853,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-904
-539
-937
+369
+933
+541
+966
 policy-D-position-m
 policy-D-position-m
 0
@@ -723,10 +868,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-937
-539
-970
+369
+966
+541
+999
 policy-D-position-sd
 policy-D-position-sd
 0
@@ -738,10 +883,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-970
-539
-1003
+369
+999
+541
+1032
 policy-E-position-m
 policy-E-position-m
 0
@@ -753,10 +898,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-367
-1003
-539
-1036
+369
+1032
+541
+1065
 policy-E-position-sd
 policy-E-position-sd
 0
@@ -798,20 +943,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-596
-677
-746
-702
+591
+706
+741
+731
 Party Values\t\t
 20
 0.0
 1
 
 SLIDER
-557
-707
-746
-740
+552
+736
+741
+769
 party-policy-A-position-m
 party-policy-A-position-m
 0
@@ -823,10 +968,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-740
-746
-773
+552
+769
+741
+802
 party-policy-A-position-sd
 party-policy-A-position-sd
 0
@@ -838,10 +983,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-772
-746
-805
+552
+801
+741
+834
 party-policy-B-position-m
 party-policy-B-position-m
 0
@@ -853,10 +998,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-804
-746
-837
+552
+833
+741
+866
 party-policy-B-position-sd
 party-policy-B-position-sd
 0
@@ -868,10 +1013,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-836
-746
-869
+552
+865
+741
+898
 party-policy-C-position-m
 party-policy-C-position-m
 0
@@ -883,10 +1028,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-869
-746
-902
+552
+898
+741
+931
 party-policy-C-position-sd
 party-policy-C-position-sd
 0
@@ -898,10 +1043,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-902
-746
-935
+552
+931
+741
+964
 party-policy-D-position-m
 party-policy-D-position-m
 0
@@ -913,10 +1058,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-935
-746
-968
+552
+964
+741
+997
 party-policy-D-position-sd
 party-policy-D-position-sd
 0
@@ -928,10 +1073,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-968
-746
-1001
+552
+997
+741
+1030
 party-policy-E-position-m
 party-policy-E-position-m
 0
@@ -943,10 +1088,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-557
-1001
-746
-1034
+552
+1030
+741
+1063
 party-policy-E-position-sd
 party-policy-E-position-sd
 0
