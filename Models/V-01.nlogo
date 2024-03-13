@@ -37,7 +37,6 @@ voters-own[
   candidate-1
   candidate-2
   candidate-3
-
   policy-A-importance-values-01
   policy-B-importance-values-01
   policy-C-importance-values-01
@@ -52,6 +51,10 @@ candidates-own[
   policy-D-positions
   policy-E-positions
   candidate-state-id
+  party-id
+  party-1
+  party-2
+  party-3
   votes
   winner?
 ]
@@ -63,10 +66,15 @@ partys-own[
   party-policy-D-positions
   party-policy-E-positions
   party-state-id
+  party-mean-position
+  p-votes
+  party-n-id
 ]
 
 patches-own[
  state-id
+ num-seats
+ party-vote-shares
 ]
 
 ; SETUP PROCEDURES
@@ -75,6 +83,7 @@ TO setup
   setup-states
   setup-agents
   assign-averages
+  assign-party
   reset-ticks
 END
 
@@ -87,7 +96,6 @@ to setup-states
     let state-x int(pxcor / 10)
     let state-y int(pycor / 10)
     set state-id (state-x + 10 * state-y)
-
     ; Assign a color based on the state
     ; This example uses a simple method to pick a color from a predefined list based on the state-id
     set pcolor item (state-id mod length base-colors) base-colors
@@ -119,14 +127,22 @@ end
 
 
 to setup-agents
-
   foreach unique-state-ids [
     current-state-id ->
+    ; Set the number of seats in the current state
     ask n-of 1 patches with [state-id = current-state-id][
+    ; set num-seats abs(round random-normal num-seats-m num-seats-sd)
     set num-voters abs(round random-normal voters-m voters-sd)
+      if num-voters < 1 [set num-voters 1]
     ifelse not partys?[
         set num-candidates abs(round random-normal candidates-m candidates-sd)
-      ][set num-partys abs(round random-normal partys-m partys-sd)]
+        if num-candidates < 1 [set num-candidates 1]
+      ][
+        set num-candidates abs(round random-normal candidates-m candidates-sd)
+        if num-candidates < 1 [set num-candidates 1]
+        set num-partys abs(round random-normal partys-m partys-sd)
+        if num-partys < 1 [set num-partys 1]
+      ]
     let state-patches patches with [state-id = current-state-id]
 
     ; For each state, identified by its color, spawn n turtles
@@ -139,8 +155,6 @@ to setup-agents
           voter-policy
         ]
        ]
-
-    ifelse not partys? [
       ask one-of state-patches [
          sprout-candidates num-candidates[
           set candidate-state-id [state-id] of patch-here
@@ -148,20 +162,25 @@ to setup-agents
           set shape "star"
           set size 1.5  ; Adjust size for visibility
           candidate-policy
-
-         ]
-        ]
-      ][
-        ask one-of state-patches[
-          sprout-partys num-partys[
-          set party-state-id [state-id] of patch-here
-          set shape "circle"
-          set size 2  ; Adjust size for visibility
-          party-policy
+          set winner? false
          ]
         ]
       ]
      ]
+  ask one-of patches[
+       if partys? [
+          let next-party-id 1
+          sprout-partys num-partys[
+          ; set party-state-id [state-id] of patch-here
+          set party-n-id next-party-id
+        ; Increment next-party-id for the next party
+          set next-party-id next-party-id + 1
+          set shape "circle"
+          setxy random-xcor random-ycor
+          set size 2  ; Adjust size for visibility
+          party-policy
+         ]
+        ]
   ]
 end
 
@@ -224,14 +243,23 @@ end
 to party-policy
   ask partys[
           set party-policy-A-positions abs(round random-normal party-policy-A-position-m party-policy-A-position-sd)
+                if party-policy-A-positions > 10 [set party-policy-A-positions 10]
+                if party-policy-A-positions < 1 [set party-policy-A-positions 1]
           set party-policy-B-positions abs(round random-normal party-policy-B-position-m party-policy-B-position-sd)
+                if party-policy-B-positions > 10 [set party-policy-B-positions 10]
+                if party-policy-B-positions < 1 [set party-policy-B-positions 1]
           set party-policy-C-positions abs(round random-normal party-policy-C-position-m party-policy-C-position-sd)
+                if party-policy-C-positions > 10 [set party-policy-C-positions 10]
+                if party-policy-C-positions < 1 [set party-policy-C-positions 1]
           set party-policy-D-positions abs(round random-normal party-policy-D-position-m party-policy-D-position-sd)
+                if party-policy-D-positions > 10 [set party-policy-D-positions 10]
+                if party-policy-D-positions < 1 [set party-policy-D-positions 1]
           set party-policy-E-positions abs(round random-normal party-policy-E-position-m party-policy-E-position-sd)
+                if party-policy-E-positions > 10 [set party-policy-E-positions 10]
+                if party-policy-E-positions < 1 [set party-policy-E-positions 1]
+          set party-mean-position ((party-policy-A-positions + party-policy-B-positions + party-policy-C-positions + party-policy-D-positions + party-policy-E-positions) / 5)
   ]
 end
-
-
 
 ; Designate patches with lower and higher averages for a variable
 to assign-averages
@@ -248,6 +276,58 @@ to assign-averages
   ]
 end
 
+to assign-party
+  ask candidates[
+    let my-state candidate-state-id
+      create-links-to other partys [
+      set hidden? true
+    ]
+
+   let p-utilities-list []
+   ask my-links [
+       let p-utility (party-utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       set p-utilities-list fput (list p-utility self) p-utilities-list
+   ]
+    let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] p-utilities-list
+
+    if (length sorted-utilities > 0) [
+      set party-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+    if (length sorted-utilities > 1) [
+      set party-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+  ]
+    if (length sorted-utilities > 2) [
+      set party-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+  ]
+ ]
+]
+
+end
+
+
+to-report party-utility-calc [candidate1 party1]
+  ; Example utility calculation
+
+      let cand-pref-a [policy-A-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-a [party-policy-A-positions] of party1
+      let cand-pref-b [policy-B-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-b [party-policy-B-positions] of party1
+      let cand-pref-c [policy-C-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-c [party-policy-C-positions] of party1
+      let cand-pref-d [policy-D-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-d [party-policy-D-positions] of party1
+      let cand-pref-E [policy-E-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-e [party-policy-E-positions] of party1
+
+      let A-dif abs([cand-pref-a] of candidate1 - [party-pref-a] of party1)
+      let B-dif abs([cand-pref-b] of candidate1 - [party-pref-b] of party1)
+      let C-dif abs([cand-pref-c] of candidate1 - [party-pref-c] of party1)
+      let D-dif abs([cand-pref-d] of candidate1 - [party-pref-d] of party1)
+      let E-dif abs([cand-pref-e] of candidate1 - [party-pref-e] of party1)
+
+      report (A-dif) + (B-dif) + (C-dif) + (D-dif) + (E-dif)
+end
+
+
 
 ; MAIN SIMULATION LOOP
 TO go
@@ -261,7 +341,6 @@ END
 
 to Determine-vote
   rank-candidates-for-voters
-
 end
 
 to rank-candidates-for-voters
@@ -286,11 +365,10 @@ ask voters[
     if (length sorted-utilities > 2) [
       set candidate-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
   ]
+ ]
 ]
-
-
-  ]
 end
+
 
 to-report utility-calc [voter1 candidate1]
   ; Example utility calculation
@@ -318,14 +396,15 @@ to-report utility-calc [voter1 candidate1]
       let voter-imp-d [policy-D-importance-values] of voter1
       let voter-imp-e [policy-E-importance-values] of voter1
 
-      report (voter-imp-a * voter-pref-a) + (voter-imp-b * voter-pref-b) + (voter-imp-c * voter-pref-c) + (voter-imp-d * voter-pref-d) + (voter-imp-e * voter-pref-e)
+      report (voter-imp-a * A-dif) + (voter-imp-b * B-dif) + (voter-imp-c * C-dif) + (voter-imp-d * D-dif) + (voter-imp-e * E-dif)
 end
 
 ; SIMULATE VARIOUS ELECTORAL SYSTEMS
 TO simulate-elections
   ; Example: Simulate a majoritarian election
   ask voters [
-    vote-majoritarian
+    if Election-Type = "Majoritarian" [vote-majoritarian]
+    if Election-Type = "Proportional" [vote-proportional]
   ]
   ; Add procedures for PR, RCV, MMP, etc., as per model requirements
 END
@@ -343,41 +422,135 @@ TO vote-majoritarian  ; Simplified example for majoritarian voting
     ; Increment selection count for candidate-1 chosen by voters in this state
     ask voters with [state-id = current-state-id] [
       ; Assuming logic to determine candidate-1 is already executed
-      ask candidate-1 [  ; This needs to be determined prior in your model
-        set votes votes + 1
-      ]
+      if not rank-choice [equal-vote]
+      if rank-choice [rank-vote]
     ]
 
-
     ; Now identify the candidate with the highest selection count in this state
-    let winner max-one-of (candidates with [state-id = current-state-id]) [votes]
+   ;; let winner max-one-of (candidates with [state-id = current-state-id]) [votes]
+
+    ; Find the maximum number of votes among candidates in the current state
+    let max-votes max [votes] of (candidates with [state-id = current-state-id])
+
+    ; Filter candidates who have this maximum number of votes
+    let top-candidates candidates with [state-id = current-state-id and votes = max-votes]
+
+    ; Randomly select one of these candidates as the winner
+    let winner one-of top-candidates
 
         ; Set the winner's winner? variable to true
     ask winner [
       set winner? true
     ]
-
-
   ]
+END
+
+to equal-vote
+      ask candidate-1 [  ; This needs to be determined prior in your model
+        set votes votes + 1
+      ]
+      if num-votes = 2[
+        ask candidate-2 [
+         set votes votes + 1
+        ]
+      ]
+      if num-votes = 3[
+         ask candidate-3 [
+            set votes votes + 1
+        ]
+      ]
+end
+
+to rank-vote
+      ask candidate-1 [  ; This needs to be determined prior in your model
+        set votes votes + 3
+      ]
+      if num-votes = 2[
+        ask candidate-2 [
+         set votes votes + 2
+        ]
+      ]
+      if num-votes = 3[
+         ask candidate-3 [
+            set votes votes + 1
+        ]
+      ]
+end
 
 
-;  ; Voters identify their candidate-1 and increment the candidate's selection-count
-;  ask voters [
-;    ; Here, implement logic to set candidate-1 based on your utility calculations
-;    ; Example:
-;    ; let my-candidate1 candidate-1  ; Assume this is determined beforehand
-;
-;    ; Increment selection-count for this candidate
-;    ask candidate-1 [  ; Assuming candidate-1 is already determined and stored for each voter
-;      set votes votes + 1
-;    ]
+to vote-proportional
+;; Reset selection count at the start of each voting process
+;  ask partys [
+;    set p-votes 0
 ;  ]
 ;
-;  ; Identify the candidate with the highest selection count
-;  let winner max-one-of candidates [votes]
+;  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
+;  foreach state-ids [
+;    current-state-id ->
+;    ; Increment selection count for candidate-1 chosen by voters in this state
+;    ask voters with [state-id = current-state-id] [
+;      ; Assuming logic to determine candidate-1 is already executed
+;      if not rank-choice [p-equal-vote]
+;      if rank-choice [p-rank-vote]
+;    ]
+;
+;
+;    ; Okay, need to calculate the percent of votes each party receives. Then translate this into the number of seats.
+;    let total-votes-in-state sum [votes] of voters with [voter-state-id = current-state-id]
+;
+;    ask patches with [state-id = current-state-id] [
+;      set party-vote-shares []  ; Reset or initialize for the current state
+;    ]
+;
+;;    ask partys [
+;;      let party-votes-in-state sum [votes] of voters with [voter-state-id = current-state-id and p-votes = self]
+;;      let vote-share 0
+;;
+;;      if total-votes-in-state > 0 [
+;;        set vote-share (party-votes-in-state / total-votes-in-state)
+;;
+;;        let current-party-id party-n-id  ; Capture the party-n-id for current party
+;;        ask patches with [state-id = current-state-id] [
+;;            set party-vote-shares lput (list current-party-id vote-share) party-vote-shares
+;;        ]
+;;      ]
+;;    ]
+;
+;  ]
+end
 
+to p-equal-vote
+      ask party-1 [  ; This needs to be determined prior in your model
+        set p-votes p-votes + 1
+      ]
+      if num-votes = 2[
+        ask party-2 [
+         set p-votes p-votes + 1
+        ]
+      ]
+      if num-votes = 3[
+         ask party-3 [
+            set p-votes p-votes + 1
+        ]
+      ]
+end
 
-END
+to p-rank-vote
+      ask party-1 [  ; This needs to be determined prior in your model
+        set p-votes p-votes + 3
+      ]
+      if num-votes = 2[
+        ask party-2 [
+         set p-votes p-votes + 2
+        ]
+      ]
+      if num-votes = 3[
+         ask party-3 [
+            set p-votes p-votes + 1
+        ]
+      ]
+end
+
 
 ; ADDITIONAL PROCEDURES for electoral process dynamics, election thresholds, etc.
 
@@ -440,10 +613,10 @@ ticks
 30.0
 
 SLIDER
-7
-274
-179
-307
+5
+337
+177
+370
 voters-m
 voters-m
 0
@@ -455,25 +628,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-7
-307
-179
-340
+5
+370
+177
+403
 voters-sd
 voters-sd
 0
 100
-0.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-30
-241
-180
-266
+28
+304
+178
+329
 District Values
 20
 0.0
@@ -700,25 +873,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-7
-339
-179
-372
+5
+402
+177
+435
 candidates-m
 candidates-m
 0
 50
-2.0
+4.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-7
-372
-179
-405
+5
+435
+177
+468
 candidates-sd
 candidates-sd
 0
@@ -730,25 +903,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-7
-404
-179
-437
+5
+467
+177
+500
 partys-m
 partys-m
 0
 50
-2.0
+3.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-7
-437
-179
-470
+5
+500
+177
+533
 partys-sd
 partys-sd
 0
@@ -1010,10 +1183,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-7
-470
-179
-503
+5
+533
+177
+566
 Conservative-Districts
 Conservative-Districts
 0
@@ -1025,10 +1198,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-7
-503
-179
-536
+5
+566
+177
+599
 Liberal-Districts
 Liberal-Districts
 0
@@ -1240,7 +1413,7 @@ SWITCH
 176
 Partys?
 Partys?
-1
+0
 1
 -1000
 
@@ -1249,9 +1422,9 @@ CHOOSER
 65
 157
 110
-District-Type
-District-Type
-"Majoritarian" "Representative"
+Election-Type
+Election-Type
+"Majoritarian" "Proportional"
 0
 
 SWITCH
@@ -1363,7 +1536,7 @@ CHOOSER
 View-State
 View-State
 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
-2
+4
 
 MONITOR
 1072
@@ -1797,6 +1970,138 @@ median [Policy-E-preference-values] of voters with [voter-state-id = view-state]
 17
 1
 11
+
+SLIDER
+19
+241
+157
+274
+Num-Votes
+Num-Votes
+0
+3
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+1072
+159
+1222
+184
+Legislator Info
+20
+0.0
+1
+
+MONITOR
+1072
+191
+1185
+236
+Legislator Policy-A
+[policy-A-positions] of candidates with [candidate-state-id = view-state and winner? ]
+17
+1
+11
+
+MONITOR
+1072
+236
+1185
+281
+Legislator Policy-B
+[policy-B-positions] of candidates with [candidate-state-id = view-state and winner? ]
+17
+1
+11
+
+MONITOR
+1072
+281
+1185
+326
+Legislator Policy-C
+[policy-C-positions] of candidates with [candidate-state-id = view-state and winner? ]
+17
+1
+11
+
+MONITOR
+1072
+326
+1183
+371
+Legislator Policy-D
+[policy-D-positions] of candidates with [candidate-state-id = view-state and winner? ]
+17
+1
+11
+
+MONITOR
+1072
+370
+1185
+415
+Legislator Policy-E
+[policy-E-positions] of candidates with [candidate-state-id = view-state and winner? ]
+17
+1
+11
+
+SWITCH
+19
+176
+157
+209
+Primary?
+Primary?
+1
+1
+-1000
+
+SWITCH
+19
+209
+157
+242
+Rank-Choice
+Rank-Choice
+0
+1
+-1000
+
+SLIDER
+5
+599
+177
+632
+num-seats-m
+num-seats-m
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+632
+177
+665
+num-seats-sd
+num-seats-sd
+0
+100
+25.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
