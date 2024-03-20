@@ -1,7 +1,7 @@
 # 🌍 Election Systems ABM 🌍
 
 ## 📜 Overview
-The Election Systems Agent-Based Model (ABM) 🚀 is designed to simulate the impact of different voting systems on electoral outcomes within a political landscape defined by multiple policy dimensions. The model's goal is to demonstrate how identical voter populations, with consistent policy preferences and importance values, can produce divergent electoral results under various electoral systems. This project aims to underscore the significance of electoral system design on the representation of voter preferences and the formation of government policy.
+The Electoral Systems Outcomes Agent-Based Model (ABM) 🚀 is designed to simulate the impact of different voting systems on electoral outcomes within a political landscape defined by multiple policy dimensions. The model's goal is to demonstrate how identical voter populations, with consistent policy preferences and importance values, can produce divergent electoral results under various electoral systems. This project aims to underscore the significance of electoral system design on the representation of voter preferences and the formation of government policy.
 
 ## 🎯 Goals
 - **Illustrate the Impact of Electoral Systems:** To show how different voting systems can lead to significantly different electoral outcomes even when voter preferences remain constant.
