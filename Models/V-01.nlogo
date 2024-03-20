@@ -53,6 +53,7 @@ voters-own[
   policy-C-importance-values-01
   policy-D-importance-values-01
   policy-E-importance-values-01
+  my-party
 ]
 
 candidates-own[
@@ -68,6 +69,7 @@ candidates-own[
 ;  party-c
   votes
   winner?
+  won-primary
 ]
 
 partys-own[
@@ -171,6 +173,7 @@ to setup-agents
           set shape "person"
           set size 1.5  ; Adjust size for visibility
           voter-policy
+          if partys? [set my-party random num-partys]
         ]
        ]
       ask one-of state-patches [
@@ -181,6 +184,8 @@ to setup-agents
           set size 1.5  ; Adjust size for visibility
           candidate-policy
           set winner? false
+          set won-primary false
+          set party-id random num-partys
          ]
         ]
       ]
@@ -360,6 +365,7 @@ END
 
 to Determine-vote
   if Election-type = "Majoritarian" [rank-candidates-for-voters]
+  if Election-type = "Majoritarian" and Primary? [rank-candidates-for-voters-primary]
   if Election-type = "Proportional" [rank-partys-for-voters]
 end
 
@@ -389,6 +395,58 @@ ask voters[
 ]
 end
 
+to rank-candidates-for-voters-primary
+ask voters[
+    let my-state voter-state-id
+    let my-party-id my-party
+      create-links-to other candidates with [candidate-state-id = my-state and party-id = my-party-id] [
+      ; set hidden? true
+    ]
+
+   let utilities-list []
+   ask my-links [
+       let utility (utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       set utilities-list fput (list utility self) utilities-list
+   ]
+    let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] utilities-list
+
+    if (length sorted-utilities > 0) [
+      set candidate-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+    if (length sorted-utilities > 1) [
+      set candidate-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+  ]
+    if (length sorted-utilities > 2) [
+      set candidate-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+  ]
+ ]
+]
+end
+
+to rank-candidates-for-voters-general
+ask voters[
+    let my-state voter-state-id
+      create-links-to other candidates with [candidate-state-id = my-state and won-primary = True] [
+      ; set hidden? true
+    ]
+
+   let utilities-list []
+   ask my-links [
+       let utility (utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       set utilities-list fput (list utility self) utilities-list
+   ]
+    let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] utilities-list
+
+    if (length sorted-utilities > 0) [
+      set candidate-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+    if (length sorted-utilities > 1) [
+      set candidate-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+  ]
+    if (length sorted-utilities > 2) [
+      set candidate-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+  ]
+ ]
+]
+end
 
 to-report utility-calc [voter1 candidate1]
   ; Example utility calculation
@@ -419,7 +477,6 @@ to-report utility-calc [voter1 candidate1]
       report (voter-imp-a * A-dif) + (voter-imp-b * B-dif) + (voter-imp-c * C-dif) + (voter-imp-d * D-dif) + (voter-imp-e * E-dif)
 end
 
-
 to rank-partys-for-voters
 ask voters[
     let my-state voter-state-id
@@ -447,7 +504,6 @@ ask voters[
 
 
 end
-
 
 to-report voter-party-utility-calc [voter1 party1]
   ; Example utility calculation
@@ -478,14 +534,14 @@ to-report voter-party-utility-calc [voter1 party1]
       report (voter-imp-a * A-dif) + (voter-imp-b * B-dif) + (voter-imp-c * C-dif) + (voter-imp-d * D-dif) + (voter-imp-e * E-dif)
 end
 
-
-
 ; SIMULATE VARIOUS ELECTORAL SYSTEMS
 TO simulate-elections
   ; Example: Simulate a majoritarian election
   ask voters [
     if Election-Type = "Majoritarian" [vote-majoritarian]
+    if Election-Type = "Majoritarian" and Primary? [primary-general-election]
     if Election-Type = "Proportional" [vote-proportional]
+    if Election-Type = "Proportional" and Election-Threshold [primary-general-election]
   ]
   ; Add procedures for PR, RCV, MMP, etc., as per model requirements
 END
@@ -559,20 +615,85 @@ to rank-vote
 end
 
 to primary-general-election
-
-
+  primary-vote
+  rank-candidates-for-voters-general
+  general-vote
 end
 
 to primary-vote
+; Reset selection count at the start of each voting process
+  ask candidates [
+    set votes 0
+  ]
 
+  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
+  let party-ids remove-duplicates [party-id] of candidates ; Assuming this is how you get party IDs
+  foreach state-ids [
+    current-state-id ->
+    ; Increment selection count for candidate-1 chosen by voters in this state
+    ask voters with [state-id = current-state-id] [
+      ; Assuming logic to determine candidate-1 is already executed
+      if not rank-choice [equal-vote]
+      if rank-choice [rank-vote]
+    ]
 
+    ; Now identify the candidate with the highest selection count in this state
+   ;; let winner max-one-of (candidates with [state-id = current-state-id]) [votes]
 
+    ; Find the maximum number of votes among candidates in the current state
+    foreach party-ids [
+      current-party-id ->
+      let candidate-votes [votes] of candidates with [state-id = current-state-id and party-id = current-party-id]
+      if not empty? candidate-votes [
+      let max-votes max [votes] of (candidates with [state-id = current-state-id and party-id = current-party-id])
 
+    ; Filter candidates who have this maximum number of votes
+      let top-candidates candidates with [state-id = current-state-id and party-id = current-party-id and votes = max-votes]
+
+    ; Randomly select one of these candidates as the winner
+      if any? top-candidates [
+        let won-primary? one-of top-candidates
+        ask won-primary? [ set won-primary true ]
+      ]
+     ]
+   ]
+  ]
 end
 
 
 to general-vote
+; Reset selection count at the start of each voting process
+  ask candidates [
+    set votes 0
+  ]
 
+  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
+  foreach state-ids [
+    current-state-id ->
+    ; Increment selection count for candidate-1 chosen by voters in this state
+    ask voters with [state-id = current-state-id] [
+      ; Assuming logic to determine candidate-1 is already executed
+      if not rank-choice [equal-vote]
+      if rank-choice [rank-vote]
+    ]
+
+    ; Now identify the candidate with the highest selection count in this state
+   ;; let winner max-one-of (candidates with [state-id = current-state-id]) [votes]
+
+    ; Find the maximum number of votes among candidates in the current state
+    let max-votes max [votes] of (candidates with [state-id = current-state-id])
+
+    ; Filter candidates who have this maximum number of votes
+    let top-candidates candidates with [state-id = current-state-id and votes = max-votes]
+
+    ; Randomly select one of these candidates as the winner
+    let winner one-of top-candidates
+
+        ; Set the winner's winner? variable to true
+    ask winner [
+      set winner? true
+    ]
+  ]
 
 end
 
@@ -751,7 +872,7 @@ voters-m
 voters-m
 0
 100
-24.0
+6.0
 1
 1
 NIL
@@ -766,7 +887,7 @@ voters-sd
 voters-sd
 0
 100
-5.0
+0.0
 1
 1
 NIL
@@ -1011,7 +1132,7 @@ candidates-m
 candidates-m
 0
 50
-3.0
+4.0
 1
 1
 NIL
@@ -1041,7 +1162,7 @@ partys-m
 partys-m
 0
 50
-3.0
+2.0
 1
 1
 NIL
@@ -1556,17 +1677,6 @@ Election-Type
 Election-Type
 "Majoritarian" "Proportional"
 1
-
-SWITCH
-19
-110
-157
-143
-Election-Threshold
-Election-Threshold
-1
-1
--1000
 
 PLOT
 864
@@ -2110,7 +2220,7 @@ Num-Votes
 Num-Votes
 0
 3
-2.0
+1.0
 1
 1
 NIL
@@ -2235,9 +2345,9 @@ HORIZONTAL
 
 MONITOR
 1151
-892
+985
 1296
-937
+1030
 NIL
 legislature-party-position-A
 2
@@ -2246,9 +2356,9 @@ legislature-party-position-A
 
 MONITOR
 861
-845
+938
 951
-890
+983
 NIL
 total-votes
 17
@@ -2257,9 +2367,9 @@ total-votes
 
 PLOT
 861
-891
+984
 1061
-1041
+1134
 Party-Seats-Won
 Party-ID
 Seats-Won
@@ -2268,18 +2378,18 @@ Seats-Won
 0.0
 100.0
 true
-false
+true
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot sum [won-seats] of partys with [party-n-id = 1]"
-"pen-1" 1.0 0 -7500403 true "" "plot sum [won-seats] of partys with [party-n-id = 2]"
-"pen-2" 1.0 0 -2674135 true "" "plot sum [won-seats] of partys with [party-n-id = 3]"
+"Party 1" 1.0 0 -3844592 true "" "plot sum [won-seats] of partys with [party-n-id = 1]"
+"Party 2" 1.0 0 -14439633 true "" "plot sum [won-seats] of partys with [party-n-id = 2]"
+"Party 3" 1.0 0 -14070903 true "" "plot sum [won-seats] of partys with [party-n-id = 3]"
 
 MONITOR
 1295
-892
+985
 1438
-937
+1030
 NIL
 legislature-party-position-B
 2
@@ -2288,9 +2398,9 @@ legislature-party-position-B
 
 MONITOR
 1438
-892
+985
 1580
-937
+1030
 NIL
 legislature-party-position-C
 2
@@ -2299,9 +2409,9 @@ legislature-party-position-C
 
 MONITOR
 1580
-891
+984
 1744
-936
+1029
 NIL
 legislature-party-position-D
 2
@@ -2310,9 +2420,9 @@ legislature-party-position-D
 
 MONITOR
 1743
-891
+984
 1906
-936
+1029
 NIL
 legislature-party-position-E
 2
@@ -2321,9 +2431,9 @@ legislature-party-position-E
 
 MONITOR
 1061
-937
+1030
 1151
-982
+1075
 Party-1-Seats
 sum [won-seats] of partys with [party-n-id = 1]
 17
@@ -2332,9 +2442,9 @@ sum [won-seats] of partys with [party-n-id = 1]
 
 MONITOR
 1061
-981
+1074
 1151
-1026
+1119
 Party-2-Seats
 sum [won-seats] of partys with [party-n-id = 2]
 1
@@ -2343,9 +2453,9 @@ sum [won-seats] of partys with [party-n-id = 2]
 
 MONITOR
 1061
-1025
+1118
 1151
-1070
+1163
 Party-3-Seats
 sum [won-seats] of partys with [party-n-id = 3]
 17
@@ -2354,9 +2464,9 @@ sum [won-seats] of partys with [party-n-id = 3]
 
 MONITOR
 1061
-892
+985
 1151
-937
+1030
 NIL
 total-seats
 17
@@ -2365,9 +2475,9 @@ total-seats
 
 MONITOR
 1151
-936
+1029
 1296
-981
+1074
 party-policy-position-A
 sum [party-policy-A-positions] of partys with [party-n-id = 1]
 1
@@ -2376,9 +2486,9 @@ sum [party-policy-A-positions] of partys with [party-n-id = 1]
 
 MONITOR
 1296
-936
+1029
 1438
-981
+1074
 party-policy-position-B
 sum [party-policy-B-positions] of partys with [party-n-id = 1]
 17
@@ -2387,9 +2497,9 @@ sum [party-policy-B-positions] of partys with [party-n-id = 1]
 
 MONITOR
 1438
-936
+1029
 1581
-981
+1074
 party-policy-position-C
 sum [party-policy-C-positions] of partys with [party-n-id = 1]
 17
@@ -2398,9 +2508,9 @@ sum [party-policy-C-positions] of partys with [party-n-id = 1]
 
 MONITOR
 1580
-936
+1029
 1744
-981
+1074
 party-policy-position-D
 sum [party-policy-D-positions] of partys with [party-n-id = 1]
 17
@@ -2409,9 +2519,9 @@ sum [party-policy-D-positions] of partys with [party-n-id = 1]
 
 MONITOR
 1744
-936
+1029
 1906
-981
+1074
 party-policy-position-E
 sum [party-policy-E-positions] of partys with [party-n-id = 1]
 1
@@ -2420,9 +2530,9 @@ sum [party-policy-E-positions] of partys with [party-n-id = 1]
 
 MONITOR
 1150
-981
+1074
 1297
-1026
+1119
 party-policy-position-A
 sum [party-policy-A-positions] of partys with [party-n-id = 2]
 17
@@ -2431,9 +2541,9 @@ sum [party-policy-A-positions] of partys with [party-n-id = 2]
 
 MONITOR
 1296
-981
+1074
 1439
-1026
+1119
 party-policy-position-B
 sum [party-policy-B-positions] of partys with [party-n-id = 2]
 17
@@ -2442,9 +2552,9 @@ sum [party-policy-B-positions] of partys with [party-n-id = 2]
 
 MONITOR
 1438
-981
+1074
 1581
-1026
+1119
 party-policy-position-C
 sum [party-policy-C-positions] of partys with [party-n-id = 2]
 17
@@ -2453,9 +2563,9 @@ sum [party-policy-C-positions] of partys with [party-n-id = 2]
 
 MONITOR
 1581
-981
+1074
 1745
-1026
+1119
 party-policy-position-D
 sum [party-policy-D-positions] of partys with [party-n-id = 2]
 17
@@ -2464,9 +2574,9 @@ sum [party-policy-D-positions] of partys with [party-n-id = 2]
 
 MONITOR
 1744
-981
+1074
 1906
-1026
+1119
 party-policy-position-E
 sum [party-policy-E-positions] of partys with [party-n-id = 2]
 17
@@ -2475,9 +2585,9 @@ sum [party-policy-E-positions] of partys with [party-n-id = 2]
 
 MONITOR
 1150
-1025
+1118
 1297
-1070
+1163
 party-policy-position-A
 sum [party-policy-A-positions] of partys with [party-n-id = 3]
 17
@@ -2486,9 +2596,9 @@ sum [party-policy-A-positions] of partys with [party-n-id = 3]
 
 MONITOR
 1296
-1025
+1118
 1439
-1070
+1163
 party-policy-position-B
 sum [party-policy-B-positions] of partys with [party-n-id = 3]
 17
@@ -2497,9 +2607,9 @@ sum [party-policy-B-positions] of partys with [party-n-id = 3]
 
 MONITOR
 1439
-1025
+1118
 1582
-1070
+1163
 party-policy-position-C
 sum [party-policy-C-positions] of partys with [party-n-id = 3]
 17
@@ -2508,9 +2618,9 @@ sum [party-policy-C-positions] of partys with [party-n-id = 3]
 
 MONITOR
 1581
-1025
+1118
 1745
-1070
+1163
 party-policy-position-D
 sum [party-policy-D-positions] of partys with [party-n-id = 3]
 17
@@ -2519,14 +2629,112 @@ sum [party-policy-D-positions] of partys with [party-n-id = 3]
 
 MONITOR
 1745
-1025
+1118
 1906
-1070
+1163
 party-policy-position-E
 sum [party-policy-E-positions] of partys with [party-n-id = 3]
 17
 1
 11
+
+PLOT
+860
+788
+1060
+938
+Primary Winners Policy A Histogram
+Policy-A
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-A-positions] of candidates with [won-primary = true]"
+
+PLOT
+1060
+788
+1260
+938
+Primary Winners Policy-B Histogram
+Policy-B
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-B-positions] of candidates with [won-primary = true]"
+
+PLOT
+1260
+788
+1460
+938
+Primary Winners Policy C Histogram
+Policy-C
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-C-positions] of candidates with [won-primary = true]"
+
+PLOT
+1460
+788
+1660
+938
+Primary Winners Policy D Histogram
+Policy-D
+Frequency
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 1 -16777216 true "" "histogram [policy-D-positions] of candidates with [won-primary = true]"
+
+SWITCH
+19
+110
+158
+143
+Election-Threshold
+Election-Threshold
+1
+1
+-1000
+
+SLIDER
+19
+274
+157
+307
+Election-Threshold
+Election-Threshold
+0
+1
+0.05
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
