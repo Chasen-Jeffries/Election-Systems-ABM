@@ -18,7 +18,15 @@ globals[
   Mean-Policy-C
   Mean-Policy-D
   Mean-Policy-E
-
+  Legislature-Policy-A-Histogram
+  national-seat-totals
+  total-votes
+  total-seats
+  legislature-party-position-A
+  legislature-party-position-B
+  legislature-party-position-C
+  legislature-party-position-D
+  legislature-party-position-E
 ]
 
 
@@ -37,6 +45,9 @@ voters-own[
   candidate-1
   candidate-2
   candidate-3
+  party-1
+  party-2
+  party-3
   policy-A-importance-values-01
   policy-B-importance-values-01
   policy-C-importance-values-01
@@ -52,9 +63,9 @@ candidates-own[
   policy-E-positions
   candidate-state-id
   party-id
-  party-1
-  party-2
-  party-3
+  party-a
+;  party-b
+;  party-c
   votes
   winner?
 ]
@@ -69,12 +80,19 @@ partys-own[
   party-mean-position
   p-votes
   party-n-id
+  won-seats
+  district-seat-shares
+  global-party-impact-A
+  global-party-impact-B
+  global-party-impact-C
+  global-party-impact-D
+  global-party-impact-E
 ]
 
 patches-own[
  state-id
  num-seats
- party-vote-shares
+ party-seat-shares
 ]
 
 ; SETUP PROCEDURES
@@ -131,7 +149,7 @@ to setup-agents
     current-state-id ->
     ; Set the number of seats in the current state
     ask n-of 1 patches with [state-id = current-state-id][
-    ; set num-seats abs(round random-normal num-seats-m num-seats-sd)
+    set num-seats abs(round random-normal num-seats-m num-seats-sd)
     set num-voters abs(round random-normal voters-m voters-sd)
       if num-voters < 1 [set num-voters 1]
     ifelse not partys?[
@@ -280,31 +298,32 @@ to assign-party
   ask candidates[
     let my-state candidate-state-id
       create-links-to other partys [
-      set hidden? true
+      ; set hidden? true
     ]
 
    let p-utilities-list []
    ask my-links [
-       let p-utility (party-utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       let p-utility (candidate-party-utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
        set p-utilities-list fput (list p-utility self) p-utilities-list
    ]
     let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] p-utilities-list
 
     if (length sorted-utilities > 0) [
-      set party-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
-    if (length sorted-utilities > 1) [
-      set party-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
-  ]
-    if (length sorted-utilities > 2) [
-      set party-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
-  ]
+      set party-a [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+;    if (length sorted-utilities > 1) [
+;      set party-b [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+;  ]
+;    if (length sorted-utilities > 2) [
+;      set party-c [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+;  ]
  ]
+    ask links [die]
 ]
 
 end
 
 
-to-report party-utility-calc [candidate1 party1]
+to-report candidate-party-utility-calc [candidate1 party1]
   ; Example utility calculation
 
       let cand-pref-a [policy-A-positions] of candidate1                                                                         ;; setup Resource variable and coordinates of each actor connected
@@ -340,7 +359,8 @@ TO go
 END
 
 to Determine-vote
-  rank-candidates-for-voters
+  if Election-type = "Majoritarian" [rank-candidates-for-voters]
+  if Election-type = "Proportional" [rank-partys-for-voters]
 end
 
 to rank-candidates-for-voters
@@ -398,6 +418,67 @@ to-report utility-calc [voter1 candidate1]
 
       report (voter-imp-a * A-dif) + (voter-imp-b * B-dif) + (voter-imp-c * C-dif) + (voter-imp-d * D-dif) + (voter-imp-e * E-dif)
 end
+
+
+to rank-partys-for-voters
+ask voters[
+    let my-state voter-state-id
+      create-links-to other partys [
+      set hidden? true
+    ]
+
+   let utilities-list []
+   ask my-links [
+       let utility (voter-party-utility-calc myself [end2] of self)  ; Adjust based on actual end of the link the candidate is on
+       set utilities-list fput (list utility self) utilities-list
+   ]
+    let sorted-utilities sort-by [[a b] -> item 0 a > item 0 b] utilities-list
+
+    if (length sorted-utilities > 0) [
+      set party-1 [end2] of item 1 (item 0 sorted-utilities)  ; Highest utility candidate
+    if (length sorted-utilities > 1) [
+      set party-2 [end2] of item 1 (item 1 sorted-utilities)  ; Second highest utility candidate
+  ]
+    if (length sorted-utilities > 2) [
+      set party-3 [end2] of item 1 (item 2 sorted-utilities)  ; Third highest utility candidate
+  ]
+ ]
+]
+
+
+end
+
+
+to-report voter-party-utility-calc [voter1 party1]
+  ; Example utility calculation
+
+      let voter-pref-a [policy-A-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-a [party-policy-A-positions] of party1
+      let voter-pref-b [policy-B-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-b [party-policy-B-positions] of party1
+      let voter-pref-c [policy-C-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-c [party-policy-C-positions] of party1
+      let voter-pref-d [policy-D-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-d [party-policy-D-positions] of party1
+      let voter-pref-E [policy-E-preference-values] of voter1                                                                         ;; setup Resource variable and coordinates of each actor connected
+      let party-pref-e [party-policy-E-positions] of party1
+
+      let A-dif abs([voter-pref-a] of voter1 - [party-pref-a] of party1)
+      let B-dif abs([voter-pref-b] of voter1 - [party-pref-b] of party1)
+      let C-dif abs([voter-pref-c] of voter1 - [party-pref-c] of party1)
+      let D-dif abs([voter-pref-d] of voter1 - [party-pref-d] of party1)
+      let E-dif abs([voter-pref-e] of voter1 - [party-pref-e] of party1)
+
+      let voter-imp-a [policy-A-importance-values] of voter1
+      let voter-imp-b [policy-B-importance-values] of voter1
+      let voter-imp-c [policy-C-importance-values] of voter1
+      let voter-imp-d [policy-D-importance-values] of voter1
+      let voter-imp-e [policy-E-importance-values] of voter1
+
+      report (voter-imp-a * A-dif) + (voter-imp-b * B-dif) + (voter-imp-c * C-dif) + (voter-imp-d * D-dif) + (voter-imp-e * E-dif)
+end
+
+
 
 ; SIMULATE VARIOUS ELECTORAL SYSTEMS
 TO simulate-elections
@@ -477,46 +558,87 @@ to rank-vote
       ]
 end
 
+to primary-general-election
+
+
+end
+
+to primary-vote
+
+
+
+
+end
+
+
+to general-vote
+
+
+end
 
 to vote-proportional
-;; Reset selection count at the start of each voting process
-;  ask partys [
-;    set p-votes 0
-;  ]
-;
-;  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
-;  foreach state-ids [
-;    current-state-id ->
-;    ; Increment selection count for candidate-1 chosen by voters in this state
-;    ask voters with [state-id = current-state-id] [
-;      ; Assuming logic to determine candidate-1 is already executed
-;      if not rank-choice [p-equal-vote]
-;      if rank-choice [p-rank-vote]
-;    ]
+; Reset selection count at the start of each voting process
+  ask partys [
+    set district-seat-shares []
+    set won-seats 0
+    set total-votes 0
+  ]
+
+  let state-ids remove-duplicates [state-id] of voters ; Assuming voters and candidates share the same set of state-ids
+  foreach state-ids [
+    current-state-id ->
+
+
+    ; Reset selection count at the start of each voting process
+    ask partys [
+      set p-votes 0
+    ]
+
+    ; Increment selection count for candidate-1 chosen by voters in this state
+    ask voters with [state-id = current-state-id] [
+      ; Assuming logic to determine candidate-1 is already executed
+      if not rank-choice [p-equal-vote]
+      if rank-choice [p-rank-vote]
+    ]
 ;
 ;
 ;    ; Okay, need to calculate the percent of votes each party receives. Then translate this into the number of seats.
-;    let total-votes-in-state sum [votes] of voters with [voter-state-id = current-state-id]
-;
-;    ask patches with [state-id = current-state-id] [
-;      set party-vote-shares []  ; Reset or initialize for the current state
-;    ]
-;
-;;    ask partys [
-;;      let party-votes-in-state sum [votes] of voters with [voter-state-id = current-state-id and p-votes = self]
-;;      let vote-share 0
-;;
-;;      if total-votes-in-state > 0 [
-;;        set vote-share (party-votes-in-state / total-votes-in-state)
-;;
-;;        let current-party-id party-n-id  ; Capture the party-n-id for current party
-;;        ask patches with [state-id = current-state-id] [
-;;            set party-vote-shares lput (list current-party-id vote-share) party-vote-shares
-;;        ]
-;;      ]
-;;    ]
-;
-;  ]
+    let total-votes-in-state count voters with [voter-state-id = current-state-id]
+    if num-votes = 2 and not rank-choice [set total-votes-in-state total-votes-in-state * 2]
+    if num-votes = 3 and not rank-choice [set total-votes-in-state total-votes-in-state * 3]
+    if num-votes = 2 and rank-choice [set total-votes-in-state total-votes-in-state * 3]
+    if num-votes = 3 and rank-choice [set total-votes-in-state total-votes-in-state * 6]
+    set total-votes total-votes-in-state + total-votes
+
+
+    let district-num-seats [num-seats] of one-of patches with [state-id = current-state-id and num-seats > 0]
+    set total-seats sum [num-seats] of patches with [num-seats > 0]
+    ask partys [
+      let party-votes-in-state p-votes
+      if total-votes-in-state > 0 [
+        let vote-share (party-votes-in-state / total-votes-in-state)
+        let district-won-seats round(vote-share * district-num-seats)
+        set won-seats won-seats + district-won-seats
+        set district-seat-shares lput (list current-state-id district-won-seats) district-seat-shares
+      ]
+    ]
+  ]
+  aggregate-national-seats
+end
+
+to aggregate-national-seats
+  ask partys[
+   set global-party-impact-A party-policy-A-positions *  won-seats / total-seats
+   set global-party-impact-B party-policy-B-positions *  won-seats / total-seats
+   set global-party-impact-C party-policy-C-positions *  won-seats / total-seats
+   set global-party-impact-D party-policy-D-positions *  won-seats / total-seats
+   set global-party-impact-E party-policy-E-positions *  won-seats / total-seats
+  ]
+   set legislature-party-position-A sum [global-party-impact-A] of partys
+   set legislature-party-position-B sum [global-party-impact-B] of partys
+   set legislature-party-position-C sum [global-party-impact-C] of partys
+   set legislature-party-position-D sum [global-party-impact-D] of partys
+   set legislature-party-position-E sum [global-party-impact-E] of partys
 end
 
 to p-equal-vote
@@ -562,6 +684,7 @@ to update-visuals
 end
 
 to legislature-visuals
+  if not partys? [
   set Med-Policy-A median [policy-A-positions] of candidates with [winner? = true]
   set Med-Policy-B median [policy-B-positions] of candidates with [winner? = true]
   set Med-Policy-C median [policy-C-positions] of candidates with [winner? = true]
@@ -572,6 +695,13 @@ to legislature-visuals
   set Mean-Policy-C median [policy-C-positions] of candidates with [winner? = true]
   set Mean-Policy-D median [policy-D-positions] of candidates with [winner? = true]
   set Mean-Policy-E median [policy-E-positions] of candidates with [winner? = true]
+  ]
+
+  if partys?[
+
+
+  ]
+
 end
 
 
@@ -613,40 +743,40 @@ ticks
 30.0
 
 SLIDER
-5
-337
-177
-370
+6
+368
+178
+401
 voters-m
 voters-m
 0
 100
-20.0
+24.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-5
-370
-177
-403
+6
+401
+178
+434
 voters-sd
 voters-sd
 0
 100
-2.0
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-28
-304
-178
-329
+29
+335
+179
+360
 District Values
 20
 0.0
@@ -873,25 +1003,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-402
-177
-435
+6
+433
+178
+466
 candidates-m
 candidates-m
 0
 50
-4.0
+3.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-5
-435
-177
-468
+6
+466
+178
+499
 candidates-sd
 candidates-sd
 0
@@ -903,10 +1033,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-467
-177
-500
+6
+498
+178
+531
 partys-m
 partys-m
 0
@@ -918,10 +1048,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-500
-177
-533
+6
+531
+178
+564
 partys-sd
 partys-sd
 0
@@ -1183,10 +1313,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-533
-177
-566
+6
+564
+178
+597
 Conservative-Districts
 Conservative-Districts
 0
@@ -1198,10 +1328,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-5
-566
-177
-599
+6
+597
+178
+630
 Liberal-Districts
 Liberal-Districts
 0
@@ -1425,7 +1555,7 @@ CHOOSER
 Election-Type
 Election-Type
 "Majoritarian" "Proportional"
-0
+1
 
 SWITCH
 19
@@ -2002,7 +2132,7 @@ MONITOR
 1185
 236
 Legislator Policy-A
-[policy-A-positions] of candidates with [candidate-state-id = view-state and winner? ]
+[policy-A-positions] of candidates with [candidate-state-id = view-state and winner?]
 17
 1
 11
@@ -2058,7 +2188,7 @@ SWITCH
 209
 Primary?
 Primary?
-1
+0
 1
 -1000
 
@@ -2069,39 +2199,334 @@ SWITCH
 242
 Rank-Choice
 Rank-Choice
-0
+1
 1
 -1000
 
 SLIDER
-5
-599
-177
-632
+6
+630
+178
+663
 num-seats-m
 num-seats-m
 0
 100
-50.0
+6.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-5
-632
-177
-665
+6
+663
+178
+696
 num-seats-sd
 num-seats-sd
 0
 100
-25.0
+2.0
 1
 1
 NIL
 HORIZONTAL
+
+MONITOR
+1151
+892
+1296
+937
+NIL
+legislature-party-position-A
+2
+1
+11
+
+MONITOR
+861
+845
+951
+890
+NIL
+total-votes
+17
+1
+11
+
+PLOT
+861
+891
+1061
+1041
+Party-Seats-Won
+Party-ID
+Seats-Won
+0.0
+10.0
+0.0
+100.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot sum [won-seats] of partys with [party-n-id = 1]"
+"pen-1" 1.0 0 -7500403 true "" "plot sum [won-seats] of partys with [party-n-id = 2]"
+"pen-2" 1.0 0 -2674135 true "" "plot sum [won-seats] of partys with [party-n-id = 3]"
+
+MONITOR
+1295
+892
+1438
+937
+NIL
+legislature-party-position-B
+2
+1
+11
+
+MONITOR
+1438
+892
+1580
+937
+NIL
+legislature-party-position-C
+2
+1
+11
+
+MONITOR
+1580
+891
+1744
+936
+NIL
+legislature-party-position-D
+2
+1
+11
+
+MONITOR
+1743
+891
+1906
+936
+NIL
+legislature-party-position-E
+2
+1
+11
+
+MONITOR
+1061
+937
+1151
+982
+Party-1-Seats
+sum [won-seats] of partys with [party-n-id = 1]
+17
+1
+11
+
+MONITOR
+1061
+981
+1151
+1026
+Party-2-Seats
+sum [won-seats] of partys with [party-n-id = 2]
+1
+1
+11
+
+MONITOR
+1061
+1025
+1151
+1070
+Party-3-Seats
+sum [won-seats] of partys with [party-n-id = 3]
+17
+1
+11
+
+MONITOR
+1061
+892
+1151
+937
+NIL
+total-seats
+17
+1
+11
+
+MONITOR
+1151
+936
+1296
+981
+party-policy-position-A
+sum [party-policy-A-positions] of partys with [party-n-id = 1]
+1
+1
+11
+
+MONITOR
+1296
+936
+1438
+981
+party-policy-position-B
+sum [party-policy-B-positions] of partys with [party-n-id = 1]
+17
+1
+11
+
+MONITOR
+1438
+936
+1581
+981
+party-policy-position-C
+sum [party-policy-C-positions] of partys with [party-n-id = 1]
+17
+1
+11
+
+MONITOR
+1580
+936
+1744
+981
+party-policy-position-D
+sum [party-policy-D-positions] of partys with [party-n-id = 1]
+17
+1
+11
+
+MONITOR
+1744
+936
+1906
+981
+party-policy-position-E
+sum [party-policy-E-positions] of partys with [party-n-id = 1]
+1
+1
+11
+
+MONITOR
+1150
+981
+1297
+1026
+party-policy-position-A
+sum [party-policy-A-positions] of partys with [party-n-id = 2]
+17
+1
+11
+
+MONITOR
+1296
+981
+1439
+1026
+party-policy-position-B
+sum [party-policy-B-positions] of partys with [party-n-id = 2]
+17
+1
+11
+
+MONITOR
+1438
+981
+1581
+1026
+party-policy-position-C
+sum [party-policy-C-positions] of partys with [party-n-id = 2]
+17
+1
+11
+
+MONITOR
+1581
+981
+1745
+1026
+party-policy-position-D
+sum [party-policy-D-positions] of partys with [party-n-id = 2]
+17
+1
+11
+
+MONITOR
+1744
+981
+1906
+1026
+party-policy-position-E
+sum [party-policy-E-positions] of partys with [party-n-id = 2]
+17
+1
+11
+
+MONITOR
+1150
+1025
+1297
+1070
+party-policy-position-A
+sum [party-policy-A-positions] of partys with [party-n-id = 3]
+17
+1
+11
+
+MONITOR
+1296
+1025
+1439
+1070
+party-policy-position-B
+sum [party-policy-B-positions] of partys with [party-n-id = 3]
+17
+1
+11
+
+MONITOR
+1439
+1025
+1582
+1070
+party-policy-position-C
+sum [party-policy-C-positions] of partys with [party-n-id = 3]
+17
+1
+11
+
+MONITOR
+1581
+1025
+1745
+1070
+party-policy-position-D
+sum [party-policy-D-positions] of partys with [party-n-id = 3]
+17
+1
+11
+
+MONITOR
+1745
+1025
+1906
+1070
+party-policy-position-E
+sum [party-policy-E-positions] of partys with [party-n-id = 3]
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
